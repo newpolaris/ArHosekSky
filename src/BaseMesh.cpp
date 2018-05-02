@@ -1,7 +1,7 @@
 #include "BaseMesh.h"
 #include <tools/gltools.hpp>
 
-void BaseMesh::initialize()
+void BaseMesh::create()
 {
 }
 

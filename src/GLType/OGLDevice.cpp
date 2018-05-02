@@ -49,6 +49,29 @@ GraphicsDataPtr OGLDevice::createGraphicsData(const GraphicsDataDesc& desc) noex
     return nullptr;
 }
 
+GraphicsTexturePtr OGLDevice::createTexture(const gli::texture& resource) noexcept
+{
+    if (m_Desc.getDeviceType() == GraphicsDeviceType::GraphicsDeviceTypeOpenGLCore)
+    {
+        auto texture = std::make_shared<OGLCoreTexture>();
+        if (!texture) return nullptr;
+		texture->setDevice(this->downcast_pointer<OGLDevice>());
+        if (texture->create(resource))
+            return texture;
+        return nullptr;
+    }
+    else if (m_Desc.getDeviceType() == GraphicsDeviceType::GraphicsDeviceTypeOpenGL)
+    {
+        auto texture = std::make_shared<OGLTexture>();
+        if (!texture) return nullptr;
+		texture->setDevice(this->downcast_pointer<OGLDevice>());
+        if (texture->create(resource))
+            return texture;
+        return nullptr;
+    }
+    return nullptr;
+}
+
 GraphicsTexturePtr OGLDevice::createTexture(const GraphicsTextureDesc& desc) noexcept
 {
     if (m_Desc.getDeviceType() == GraphicsDeviceType::GraphicsDeviceTypeOpenGLCore)

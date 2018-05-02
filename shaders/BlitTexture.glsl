@@ -16,9 +16,10 @@ void main()
 
 -- Fragment
 
+uniform sampler2D uTexSource;
+
 // IN
 in vec2 vTexcoords;
-uniform sampler2D uTexSource;
 
 // OUT
 out vec3 fragColor;
@@ -94,6 +95,7 @@ void main()
 	// vec3 col = aces_fitted(samples);
 	// col = toSRGB(col);
     vec3 col = toneMapAndtoSRGB(samples);
+	// vec3 col = toSRGB(samples);
 
 	fragColor = col;
 }

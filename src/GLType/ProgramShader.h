@@ -15,7 +15,7 @@ public:
     virtual ~ProgramShader() noexcept;
     
     /** Generate the program id */
-    bool initialize() noexcept;
+    bool create() noexcept;
     
     /** Destroy the program id */
     void destroy();        

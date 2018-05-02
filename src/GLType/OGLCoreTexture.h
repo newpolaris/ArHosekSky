@@ -14,6 +14,7 @@ public:
 	OGLCoreTexture();
     virtual ~OGLCoreTexture();
 
+	bool create(const gli::texture& texture) noexcept;
     bool create(const GraphicsTextureDesc& desc) noexcept;
 	bool create(const std::string& filename) noexcept;
 	bool create(GLint width, GLint height, GLenum target, GraphicsFormat format, GLuint levels, const uint8_t* data, uint32_t size) noexcept;
@@ -31,10 +32,11 @@ public:
 
     const GraphicsTextureDesc& getGraphicsTextureDesc() const noexcept override;
 
+	void parameteri(GLenum pname, GLint param);
+
 private:
 
     void applyParameters(const GraphicsTextureDesc& desc);
-	void parameteri(GLenum pname, GLint param);
 	void parameterf(GLenum pname, GLfloat param);
 
     bool createFromMemory(const char* data, size_t dataSize) noexcept;

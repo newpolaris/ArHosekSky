@@ -14,6 +14,7 @@ public:
     void destoy() noexcept;
 
     GraphicsDataPtr createGraphicsData(const GraphicsDataDesc& desc) noexcept override;
+    GraphicsTexturePtr createTexture(const gli::texture& texture) noexcept override;
     GraphicsTexturePtr createTexture(const GraphicsTextureDesc& desc) noexcept override;
     GraphicsFramebufferPtr createFramebuffer(const GraphicsFramebufferDesc& desc) noexcept override;
 

@@ -36,7 +36,7 @@ ProgramShader::~ProgramShader() noexcept
     destroy(); 
 }
 
-bool ProgramShader::initialize() noexcept
+bool ProgramShader::create() noexcept
 {
     assert(m_ShaderID == GL_NONE);
     if (m_ShaderID != GL_NONE)

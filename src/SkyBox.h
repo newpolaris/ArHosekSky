@@ -1,67 +1,72 @@
-/**
- * 
- *    \file SkyBox.hpp
- * 
- * 
- */
- 
 #pragma once
-
-#ifndef SKYBOX_HPP
-#define SKYBOX_HPP
 
 #include <vector>
 #include <string>
 #include <memory>
+#include <Types.h>
+#include <Mesh.h>
 
-class TCamera;
-class ProgramShader;
-class CubeMesh;
+// HosekSky forward declares
+struct ArHosekSkyModelState;
 
-class SkyBox
+struct SkyboxParam
 {
-  protected:
-    bool m_bInitialized;
-    
-    ProgramShader *m_Program;
-    CubeMesh *m_CubeMesh;
-    
-    std::vector<std::shared_ptr<class OGLCoreTexture>> m_cubemaps;
-    size_t m_curIdx;
-    
-    //-------------------------------------------------
-    bool m_bAutoRotation;
-    float m_spin;
-    glm::mat4 m_rotateMatrix;
-    glm::mat3 m_invRotateMatrix; //it's for normals, so we don't need a 4x4 matrix
-    //-------------------------------------------------
-    
-    
-  public:
-    SkyBox()
-      : m_bInitialized(false),
-        m_Program(0),
-        m_CubeMesh(0),
-        m_curIdx(0u),
-        m_rotateMatrix(1.f),
-        m_invRotateMatrix(1.f),
-        m_bAutoRotation(false),
-        m_spin(0.0f)
-    {}
-    
-    virtual ~SkyBox();
-    
-    void initialize();
-	void shutdown();
-    void render(const TCamera& camera);
-    
-    void addCubemap( const std::string &name );
-    bool setCubemap( size_t idx );
-    
-    //-------------------------------------------------
-    void toggleAutoRotate() {m_bAutoRotation = !m_bAutoRotation;}
-    const glm::mat3& getInvRotateMatrix() {return m_invRotateMatrix;}
-    //-------------------------------------------------
+    glm::vec3 sunDir;
+    glm::vec3 sunColor;
+    glm::vec3 groundAlbedo;
+    glm::vec3 position;
+    glm::mat4 view;
+    glm::mat4 projection;
+    float turbidity;
 };
 
-#endif //SKYBOX_HPP
+// Cached data for the procedural sky model
+class SkyCache final
+{
+public:
+
+    SkyCache();
+    ~SkyCache();
+
+    void create();
+    void destroy();
+    bool update(const SkyboxParam& param);
+
+private:
+
+    friend class Skybox;
+
+    ArHosekSkyModelState* m_StateR;
+    ArHosekSkyModelState* m_StateG;
+    ArHosekSkyModelState* m_StateB;
+
+    glm::vec3 m_SunDir;
+    glm::vec3 m_Albedo;
+    float m_Turbidity;
+};
+
+class Skybox final
+{
+public:
+
+    Skybox();
+    ~Skybox();
+
+    void create();
+    void destroy();
+    void update(const SkyboxParam& param);
+    void render(const glm::mat4& view, const glm::mat4& projection);
+
+    GraphicsDevicePtr Skybox::getDevice() noexcept;
+    void setDevice(const GraphicsDevicePtr& device) noexcept;
+
+    static glm::vec3 SampleSky(const SkyCache& cache, glm::vec3 sampleDir);
+
+private:
+
+    SkyCache m_SkyCache;
+    ShaderPtr m_SkyShader;
+    CubeMesh m_CubeMesh;
+    GraphicsTexturePtr m_CubemapTex;
+    GraphicsDeviceWeakPtr m_Device;
+};

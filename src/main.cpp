@@ -22,7 +22,7 @@
 #include <GLType/OGLCoreFramebuffer.h>
 
 #include <GraphicsTypes.h>
-#include <SkyBox.h>
+#include <Skybox.h>
 #include <Mesh.h>
 
 #include <fstream>
@@ -42,7 +42,6 @@ namespace
 
 struct SceneSettings
 {
-    bool bCPU = false;
     bool bProfile = true;
     bool bUiChanged = false;
     bool bResized = false;
@@ -80,11 +79,11 @@ glm::vec3 ComputeCoefficientMie(const glm::vec3& lambda, const glm::vec3& K, flo
     return mie * K / glm::pow(lambda, glm::vec3(jungeexp - 2));
 }
 
-class LightScattering final : public gamecore::IGameApp
+class ArHosekSky final : public gamecore::IGameApp
 {
 public:
-	LightScattering() noexcept;
-	virtual ~LightScattering() noexcept;
+	ArHosekSky() noexcept;
+	virtual ~ArHosekSky() noexcept;
 
 	virtual void startup() noexcept override;
 	virtual void closeup() noexcept override;
@@ -102,30 +101,30 @@ public:
 private:
 
     std::vector<glm::vec2> m_Samples;
+    Skybox m_Skybox;
     SphereMesh m_Sphere;
     SceneSettings m_Settings;
 	TCamera m_Camera;
     FullscreenTriangleMesh m_ScreenTraingle;
     ProgramShader m_SkyShader;
     ProgramShader m_BlitShader;
-    GraphicsTexturePtr m_SkyColorTex;
     GraphicsTexturePtr m_ScreenColorTex;
     GraphicsFramebufferPtr m_ColorRenderTarget;
     GraphicsDevicePtr m_Device;
 };
 
-CREATE_APPLICATION(LightScattering);
+CREATE_APPLICATION(ArHosekSky);
 
-LightScattering::LightScattering() noexcept :
+ArHosekSky::ArHosekSky() noexcept :
     m_Sphere(32, 1.0e5f)
 {
 }
 
-LightScattering::~LightScattering() noexcept
+ArHosekSky::~ArHosekSky() noexcept
 {
 }
 
-void LightScattering::startup() noexcept
+void ArHosekSky::startup() noexcept
 {
 	profiler::initialize();
 
@@ -143,30 +142,31 @@ void LightScattering::startup() noexcept
 	assert(m_Device);
 
 	m_SkyShader.setDevice(m_Device);
-	m_SkyShader.initialize();
+	m_SkyShader.create();
 	m_SkyShader.addShader(GL_VERTEX_SHADER, "Scattering.Vertex");
 	m_SkyShader.addShader(GL_FRAGMENT_SHADER, "Scattering.Fragment");
 	m_SkyShader.link();
 
 	m_BlitShader.setDevice(m_Device);
-	m_BlitShader.initialize();
+	m_BlitShader.create();
 	m_BlitShader.addShader(GL_VERTEX_SHADER, "BlitTexture.Vertex");
 	m_BlitShader.addShader(GL_FRAGMENT_SHADER, "BlitTexture.Fragment");
 	m_BlitShader.link();
 
     m_ScreenTraingle.create();
-
     m_Sphere.create();
+    m_Skybox.setDevice(m_Device);
+    m_Skybox.create();
 }
 
-void LightScattering::closeup() noexcept
+void ArHosekSky::closeup() noexcept
 {
     m_Sphere.destroy();
     m_ScreenTraingle.destroy();
 	profiler::shutdown();
 }
 
-void LightScattering::update() noexcept
+void ArHosekSky::update() noexcept
 {
     bool bCameraUpdated = m_Camera.update();
 
@@ -182,26 +182,25 @@ void LightScattering::update() noexcept
         bResized = true;
     }
     m_Settings.bUpdated = (m_Settings.bUiChanged || bCameraUpdated || bResized);
-    if (m_Settings.bUpdated && m_Settings.bCPU)
+    if (m_Settings.bUpdated)
     {
         float angle = glm::radians(m_Settings.angle);
-        std::vector<glm::vec4> image(width*height, glm::vec4(0.f));
         glm::vec3 sunDir = glm::vec3(0.0f, glm::cos(angle), -glm::sin(angle));
+        sunDir = glm::vec3 {-0.579149902, 0.754439294, -0.308880031 };
+        
+        SkyboxParam param;
+        param.groundAlbedo = glm::vec3(0.5f);
+        param.position = m_Camera.getPosition();
+        param.view = m_Camera.getViewMatrix();
+        param.projection = m_Camera.getProjectionMatrix();
+        param.turbidity = 2.f;
+        param.sunDir = normalize(sunDir);
 
-        Atmosphere atmosphere(sunDir);
-        atmosphere.renderSkyDome(image, width, height);
-
-        GraphicsTextureDesc colorDesc;
-        colorDesc.setWidth(width);
-        colorDesc.setHeight(height);
-        colorDesc.setFormat(gli::FORMAT_RGBA32_SFLOAT_PACK32);
-        colorDesc.setStream((uint8_t*)image.data());
-        colorDesc.setStreamSize(width*height*sizeof(glm::vec4));
-        m_SkyColorTex = m_Device->createTexture(colorDesc);
+        m_Skybox.update(param);
     }
 }
 
-void LightScattering::updateHUD() noexcept
+void ArHosekSky::updateHUD() noexcept
 {
     bool bUpdated = false;
     float width = (float)getWindowWidth(), height = (float)getWindowHeight();
@@ -213,7 +212,6 @@ void LightScattering::updateHUD() noexcept
         NULL,
         ImVec2(width / 4.0f, height - 20.0f),
         ImGuiWindowFlags_AlwaysAutoResize);
-    bUpdated |= ImGui::Checkbox("Mode CPU", &m_Settings.bCPU);
     bUpdated |= ImGui::Checkbox("Always redraw", &m_Settings.bProfile);
 	bUpdated |= ImGui::Checkbox("Use chapman approximation", &m_Settings.bChapman);
     bUpdated |= ImGui::SliderFloat("Sun Angle", &m_Settings.angle, 0.f, 120.f);
@@ -230,12 +228,12 @@ void LightScattering::updateHUD() noexcept
     m_Settings.bUiChanged = bUpdated;
 }
 
-void LightScattering::render() noexcept
+void ArHosekSky::render() noexcept
 {
     bool bUpdate = m_Settings.bProfile || m_Settings.bUpdated;
 
     profiler::start(ProfilerTypeRender);
-    if (!m_Settings.bCPU && bUpdate)
+    if (bUpdate)
     {
         // [Preetham99]
         const glm::vec3 K = glm::vec3(0.686282f, 0.677739f, 0.663365f); // spectrum
@@ -266,20 +264,18 @@ void LightScattering::render() noexcept
         m_SkyShader.setUniform("uAltitude", m_Settings.altitude*1e3f);
         m_SkyShader.setUniform("betaR0", rayleigh);
         m_SkyShader.setUniform("betaM0", mie);
-        m_Sphere.draw();
+        // m_Sphere.draw();
+        m_Skybox.render(m_Camera.getViewMatrix(), m_Camera.getProjectionMatrix());
         glEnable(GL_CULL_FACE);
     }
     // Tone mapping
     {
-        GraphicsTexturePtr target = m_ScreenColorTex;
-        if (m_Settings.bCPU && m_SkyColorTex) 
-            target = m_SkyColorTex;
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, getFrameWidth(), getFrameHeight());
 
         glDisable(GL_DEPTH_TEST);
         m_BlitShader.bind();
-        m_BlitShader.bindTexture("uTexSource", target, 0);
+        m_BlitShader.bindTexture("uTexSource", m_ScreenColorTex, 0);
         m_ScreenTraingle.draw();
         glEnable(GL_DEPTH_TEST);
     }
@@ -288,7 +284,7 @@ void LightScattering::render() noexcept
 
 }
 
-void LightScattering::keyboardCallback(uint32_t key, bool isPressed) noexcept
+void ArHosekSky::keyboardCallback(uint32_t key, bool isPressed) noexcept
 {
 	switch (key)
 	{
@@ -310,7 +306,7 @@ void LightScattering::keyboardCallback(uint32_t key, bool isPressed) noexcept
 	}
 }
 
-void LightScattering::framesizeCallback(int32_t width, int32_t height) noexcept
+void ArHosekSky::framesizeCallback(int32_t width, int32_t height) noexcept
 {
 	float aspectRatio = (float)width/height;
 	m_Camera.setProjectionParams(45.0f, aspectRatio, 0.1f, 100.0f);
@@ -334,19 +330,19 @@ void LightScattering::framesizeCallback(int32_t width, int32_t height) noexcept
     m_ColorRenderTarget = m_Device->createFramebuffer(desc);;
 }
 
-void LightScattering::motionCallback(float xpos, float ypos, bool bPressed) noexcept
+void ArHosekSky::motionCallback(float xpos, float ypos, bool bPressed) noexcept
 {
 	const bool mouseOverGui = ImGui::MouseOverArea();
 	if (!mouseOverGui && bPressed) m_Camera.motionHandler(int(xpos), int(ypos), false);    
 }
 
-void LightScattering::mouseCallback(float xpos, float ypos, bool bPressed) noexcept
+void ArHosekSky::mouseCallback(float xpos, float ypos, bool bPressed) noexcept
 {
 	const bool mouseOverGui = ImGui::MouseOverArea();
 	if (!mouseOverGui && bPressed) m_Camera.motionHandler(int(xpos), int(ypos), true); 
 }
 
-GraphicsDevicePtr LightScattering::createDevice(const GraphicsDeviceDesc& desc) noexcept
+GraphicsDevicePtr ArHosekSky::createDevice(const GraphicsDeviceDesc& desc) noexcept
 {
 	GraphicsDeviceType deviceType = desc.getDeviceType();
 

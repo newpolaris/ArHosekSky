@@ -1,131 +1,244 @@
-/**
- *
- *    \file SkyBox.cpp
- *
- *
- */
-
 #include <cassert>
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <HosekSky/ArHosekSkyModel.h>
 
-#include <tools/TCamera.h>
-#include <tools/gltools.hpp>
-#include <tools/Timer.hpp>
+#include <GLType/GraphicsDevice.h>
 #include <GLType/ProgramShader.h>
-#include <GLType/OGLCoreTexture.h>
-#include "Mesh.h"
+#include <GLType/GraphicsTexture.h>
+#include <tools/gltools.hpp>
+#include <Types.h>
+#include <Mesh.h>
+#include <gli/gli.hpp>
 #include "SkyBox.h"
 
-
-SkyBox::~SkyBox()
+namespace
 {
-    shutdown();
-}
+    // Scale factor used for storing physical light units in fp16 floats (equal to 2^-10).
+    const float FP16Scale = 0.0009765625f;
 
-void SkyBox::shutdown()
-{
-    if(0 != m_Program) delete m_Program;
-    m_Program = 0;
-    if(0 != m_CubeMesh) delete m_CubeMesh;
-    m_CubeMesh = 0;
-    m_cubemaps.clear();
-}
-
-void SkyBox::initialize()
-{
-    assert(false == m_bInitialized);
-
-    // Create & load the CubeMap program
-    m_Program = new ProgramShader();
-    m_Program->initialize();
-    m_Program->addShader(GL_VERTEX_SHADER, "SkyBox.Vertex");
-    m_Program->addShader(GL_FRAGMENT_SHADER, "SkyBox.Fragment");
-    m_Program->link();
-
-    // Create the cube mesh
-    m_CubeMesh = new CubeMesh();
-    m_CubeMesh->create();
-
-    // [optionnal] clear the vector  
-    m_cubemaps.clear();
-
-    m_bInitialized = true;
-}
-
-void SkyBox::render(const TCamera& camera)
-{
-    assert(m_bInitialized);
-
-    if(m_cubemaps.empty())
+    // Utility function to map a XY + Side coordinate to a direction vector
+    glm::vec3 MapXYSToDirection(int x, int y, int s, int width, int height)
     {
-        fprintf(stderr, "ERROR : no cubemap specified\n");
-        exit(0);
-    }
+        float u = ((x + 0.5f) / width) * 2.f - 1.f;
+        float v = ((y + 0.5f) / height) * 2.f - 1.f;
 
+        glm::vec3 dir(0.f);
 
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    glDisable(GL_CULL_FACE);
-
-    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-
-    m_Program->bind();
-    {
-        //-------------------------------------------------
-        if(m_bAutoRotation)
+        // https://learnopengl.com/Advanced-OpenGL/Cubemaps
+        // +x, -x, +y, -y, +z, -z
+        switch(s)
         {
-            m_spin = fmodf(m_spin + 0.1f, 360.0f);
-            glm::vec3 axis = glm::vec3(1.0f, 0.7f, -0.5f);
-
-            m_rotateMatrix = glm::rotate(glm::mat4(1.0f), m_spin, axis);
-            m_invRotateMatrix = glm::mat3(glm::rotate(glm::mat4(1.0f), -m_spin, axis));
+        case 0:
+            dir = glm::vec3(1.f, v, u);
+            break;
+        case 1:
+            dir = glm::vec3(-1.f, v, -u);
+            break;
+        case 2:
+            dir = glm::vec3(u, 1.f, v);
+            break;
+        case 3:
+            dir = glm::vec3(u, -1.f, -v);
+            break;
+        case 4:
+            dir = glm::vec3(u, v, -1.f);
+            break;
+        case 5:
+            dir = glm::vec3(-u, v, 1.f);
+            break;
         }
-        //-------------------------------------------------
-
-        // Vertex uniform
-        glm::mat4 followCamera = glm::translate(glm::mat4(1.0f), camera.getPosition());
-        glm::mat4 model = m_CubeMesh->getModelMatrix() * followCamera * m_rotateMatrix;
-        glm::mat4 mvp = camera.getViewProjMatrix() * model;
-        m_Program->setUniform("uModelViewProjMatrix", mvp);
-
-        // Fragment uniform
-        m_Program->setUniform("uCubemap", 0);
-
-        m_cubemaps[m_curIdx]->bind(0u);
-        m_CubeMesh->draw();
-        m_cubemaps[m_curIdx]->unbind(0u);
+        return glm::normalize(dir);
     }
-    m_Program->unbind();
 
-    glDisable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+    float angleBetween(const glm::vec3& dir0, const glm::vec3& dir1)
+    {
+        return std::acos(std::max(glm::dot(dir0, dir1), 0.00001f));
+    }
+}
 
-    //glEnable( GL_CULL_FACE );
-    glDepthMask(GL_TRUE);
-    glEnable(GL_DEPTH_TEST);
+SkyCache::SkyCache()
+    : m_StateR(nullptr)
+    , m_StateG(nullptr)
+    , m_StateB(nullptr)
+    , m_SunDir(0.f, 1.f, 0.f)
+    , m_Albedo(1.f)
+    , m_Turbidity(1.f)
+{
+}
+
+SkyCache::~SkyCache()
+{
+}
+
+void SkyCache::create()
+{
+}
+
+bool SkyCache::update(const SkyboxParam& param)
+{
+    float turbidity = glm::clamp(param.turbidity, 1.f, 100.f);
+    glm::vec3 groundAlbedo = glm::clamp(param.groundAlbedo);
+    glm::vec3 sunDir = param.sunDir;
+    sunDir.y = glm::clamp(param.sunDir.y, 0.f, 1.f);
+    sunDir = normalize(sunDir);
+
+
+    if (sunDir == m_SunDir 
+        && groundAlbedo == m_Albedo
+        && turbidity == m_Turbidity)
+        return false;
+
+    destroy();
+
+    float theta = angleBetween(sunDir, glm::vec3(0, 1, 0));
+    float elevation = glm::half_pi<float>() - theta;
+
+    m_StateR = arhosek_rgb_skymodelstate_alloc_init(turbidity, groundAlbedo.r, elevation);
+    m_StateG = arhosek_rgb_skymodelstate_alloc_init(turbidity, groundAlbedo.g, elevation);
+    m_StateB = arhosek_rgb_skymodelstate_alloc_init(turbidity, groundAlbedo.b, elevation);
+
+    m_SunDir = sunDir;
+    m_Albedo = groundAlbedo;
+    m_Turbidity = turbidity;
+
+    return true;
+}
+
+void SkyCache::destroy()
+{
+    if (m_StateR != nullptr)
+    {
+        arhosekskymodelstate_free(m_StateR);
+        m_StateR = nullptr;
+    }
+    if (m_StateG != nullptr)
+    {
+        arhosekskymodelstate_free(m_StateG);
+        m_StateG = nullptr;
+    }
+
+    if (m_StateB != nullptr)
+    {
+        arhosekskymodelstate_free(m_StateB);
+        m_StateB = nullptr;
+    }
+}
+
+Skybox::Skybox()
+{
+}
+
+Skybox::~Skybox()
+{
+    destroy();
+}
+
+void Skybox::destroy()
+{
+    m_CubeMesh.destroy();
+}
+
+void Skybox::create()
+{
+    auto device = getDevice();
+
+    m_SkyShader = std::make_shared<ProgramShader>();
+    m_SkyShader->setDevice(device);
+    m_SkyShader->create();
+    m_SkyShader->addShader(GL_VERTEX_SHADER, "Skybox.Vertex");
+    m_SkyShader->addShader(GL_FRAGMENT_SHADER, "Skybox.Fragment");
+    m_SkyShader->link();
+
+    m_CubeMesh.create();
+}
+
+void Skybox::update(const SkyboxParam& param)
+{
+    //
+    // Use code from 'BakingLab'
+    //
+    // Update the cache, if necessary
+    if (!m_SkyCache.update(param) && m_CubemapTex)
+        return;
+
+    const uint32_t numFace = 6;
+    const uint32_t cubemapRes = 128;
+    std::vector<uint64_t> texels;
+    texels.resize(cubemapRes * cubemapRes * numFace);
+
+    gli::texture texture(
+        gli::texture::target_type::TARGET_CUBE,
+        gli::texture::format_type::FORMAT_RGBA16_SFLOAT_PACK16,
+        gli::extent3d(cubemapRes, cubemapRes, 1),
+        1, numFace, 1);
+
+    assert(texture.size() == cubemapRes*cubemapRes*numFace*sizeof(uint64_t));
+
+    for (int s = 0; s < numFace; s++)
+    {
+        auto texels = texture.data<uint64_t>(0, s, 0);
+        for (int y = 0; y < cubemapRes; y++)
+        {
+            for (int x = 0; x < cubemapRes; x++)
+            {
+                glm::vec3 dir = MapXYSToDirection(x, y, s, cubemapRes, cubemapRes);
+                glm::vec3 radiance = SampleSky(m_SkyCache, dir);
+                
+                uint32_t idx = y*cubemapRes + x;
+                texels[idx] = glm::packHalf4x16(glm::vec4(radiance, 1.f));
+            }
+        }
+    }
+
+    auto device = getDevice();
+    m_CubemapTex = device->createTexture(texture);
+
+    // glDepthMask(GL_TRUE);
+    // glEnable(GL_DEPTH_TEST);
 
     CHECKGLERROR();
 }
 
-void SkyBox::addCubemap(const std::string &name)
+void Skybox::render(const glm::mat4& view, const glm::mat4& projection)
 {
-    assert(m_bInitialized);
-
-    auto cubemap = std::make_shared<OGLCoreTexture>();
-    cubemap->create(name);
-    m_cubemaps.push_back(cubemap);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+    m_SkyShader->bind();
+    m_SkyShader->setUniform("uView", view);
+    m_SkyShader->setUniform("uProjection", projection);
+    m_SkyShader->bindTexture("uTexSource", m_CubemapTex, 0);
+    m_CubeMesh.draw();
+    glEnable(GL_DEPTH_TEST);
 }
 
-bool SkyBox::setCubemap(size_t idx)
+glm::vec3 Skybox::SampleSky(const SkyCache& cache, glm::vec3 sampleDir)
 {
-    assert(m_bInitialized);
+    assert(cache.m_StateR != nullptr);
 
-    if(m_cubemaps.empty() || (idx >= m_cubemaps.size()))
-    {
-        fprintf(stderr, "SkyBox : Cubemap index out of range.\n");
-        return false;
-    }
+    float gamma = angleBetween(sampleDir, cache.m_SunDir);
+    float theta = angleBetween(sampleDir, glm::vec3(0, 1, 0));
 
-    m_curIdx = idx;
-    return true;
+    glm::vec3 radiance;
+    radiance.r = (float)arhosek_tristim_skymodel_radiance(cache.m_StateR, theta, gamma, 0);
+    radiance.g = (float)arhosek_tristim_skymodel_radiance(cache.m_StateG, theta, gamma, 1);
+    radiance.b = (float)arhosek_tristim_skymodel_radiance(cache.m_StateB, theta, gamma, 2);
+
+    // Multiply by standard luminous efficacy of 683 lm/W to bring us in line with the photometric
+    // units used during rendering
+    radiance *= 683.0f;
+
+    radiance *= FP16Scale;
+    radiance /= 20.f;
+
+    return radiance;
+}
+
+void Skybox::setDevice(const GraphicsDevicePtr& device) noexcept
+{
+    m_Device = device;
+}
+
+GraphicsDevicePtr Skybox::getDevice() noexcept
+{
+    return m_Device.lock();
 }

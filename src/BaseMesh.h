@@ -14,7 +14,7 @@ public:
 		destroy();
 	}
 
-	void initialize();
+	void create();
 	void destroy();
 	void render();
 

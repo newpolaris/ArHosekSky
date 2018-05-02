@@ -3,12 +3,16 @@
 #include <vector>
 #include <memory>
 #include <tools/Rtti.h>
-#include <gli/gli.hpp>
 
 class GraphicsDeviceDesc;
 class GraphicsDataDesc;
 class GraphicsTextureDesc;
 class GraphicsFramebufferDesc;
+
+namespace gli
+{
+	class texture;
+}
 
 typedef std::shared_ptr<class GraphicsDevice> GraphicsDevicePtr;
 typedef std::shared_ptr<class GraphicsData> GraphicsDataPtr;
@@ -72,6 +76,8 @@ enum GraphicsUsageFlagBits
 typedef std::uint32_t GraphicsUsageFlags;
 
 #ifndef _TEST
+#include <gli/target.hpp>
+#include <gli/format.hpp>
 typedef gli::target GraphicsTarget;
 typedef gli::format GraphicsFormat;
 #else

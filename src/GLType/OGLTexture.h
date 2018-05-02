@@ -14,6 +14,7 @@ public:
 	OGLTexture();
     virtual ~OGLTexture();
 
+    bool create(const gli::texture& texture) noexcept;
     bool create(const GraphicsTextureDesc& desc) noexcept;
 	bool create(const std::string& filename) noexcept;
 	bool create(GLint width, GLint height, GLenum target, GraphicsFormat format, GLuint levels, const uint8_t* data, uint32_t size) noexcept;

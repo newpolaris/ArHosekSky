@@ -1,8 +1,8 @@
 # CMake entry point
 cmake_minimum_required (VERSION 3.0)
-project (LightScattering)
+project (ArHosekSky)
 
-set(APP_TARGET LightScattering.app)
+set(APP_TARGET ArHosekSky.app)
 
 #if( APPLE )
     set(CMAKE_CXX_STANDARD 14)
