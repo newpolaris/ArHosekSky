@@ -51,6 +51,13 @@ namespace
         return glm::normalize(dir);
     }
 
+    // Linear interpolation
+    template<typename T> T lerp(const T& x, const T& y, float s)
+    {
+        return x + (y - x) * s;
+    }
+
+    // hosek's implementation expect positive theta
     float angleBetween(const glm::vec3& dir0, const glm::vec3& dir1)
     {
         return std::acos(std::max(glm::dot(dir0, dir1), 0.00001f));
@@ -82,7 +89,6 @@ bool SkyCache::update(const SkyboxParam& param)
     glm::vec3 sunDir = param.sunDir;
     sunDir.y = glm::clamp(param.sunDir.y, 0.f, 1.f);
     sunDir = normalize(sunDir);
-
 
     if (sunDir == m_SunDir 
         && groundAlbedo == m_Albedo
@@ -197,13 +203,17 @@ void Skybox::update(const SkyboxParam& param)
     CHECKGLERROR();
 }
 
-void Skybox::render(const glm::mat4& view, const glm::mat4& projection)
+void Skybox::render(bool bEnableSun, float sunSize, glm::vec3 sunColor, glm::mat4 view, glm::mat4 projection)
 {
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
     m_SkyShader->bind();
+    m_SkyShader->setUniform("ubEnableSun", bEnableSun);
+    m_SkyShader->setUniform("uSunColor", sunColor);
+    m_SkyShader->setUniform("uSunDir", glm::normalize(m_SkyCache.m_SunDir));
+    m_SkyShader->setUniform("uCosSunAngularRadius", std::cos(glm::radians(sunSize)));
     m_SkyShader->setUniform("uView", view);
     m_SkyShader->setUniform("uProjection", projection);
     m_SkyShader->bindTexture("uTexSource", m_CubemapTex, 0);

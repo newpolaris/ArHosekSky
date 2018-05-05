@@ -24,6 +24,10 @@ void main()
 
 -- Fragment
 
+uniform bool ubEnableSun;
+uniform float uCosSunAngularRadius;
+uniform vec3 uSunDir;
+uniform vec3 uSunColor;
 uniform samplerCube uTexSource;
 
 // IN
@@ -35,5 +39,19 @@ out vec3 fragColor;
 // ----------------------------------------------------------------------------
 void main() 
 {
-    fragColor = texture(uTexSource, normalize(vTexcoords)).rgb;
+    const float FP16Max = 65000.0f;
+
+    vec3 dir = normalize(vTexcoords);
+    vec3 color = texture(uTexSource, dir).rgb;
+
+    // Draw a circle for the sun
+    if (ubEnableSun)
+    {
+        float cosSunAngle = dot(dir, uSunDir);
+        if (cosSunAngle >= uCosSunAngularRadius)
+            color = uSunColor;
+    }
+    color = clamp(color, 0.f, FP16Max);
+
+    fragColor = vec3(color);
 }

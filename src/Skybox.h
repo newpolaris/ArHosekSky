@@ -7,6 +7,8 @@
 #include <Mesh.h>
 #include <GraphicsTypes.h>
 
+#include "Spectrum.h"
+
 // HosekSky forward declares
 struct ArHosekSkyModelState;
 
@@ -56,7 +58,7 @@ public:
     void create();
     void destroy();
     void update(const SkyboxParam& param);
-    void render(const glm::mat4& view, const glm::mat4& projection);
+    void render(bool bEnableSun, float sunSize, glm::vec3 sunColor, glm::mat4 view, glm::mat4 projection);
 
     GraphicsDevicePtr getDevice() noexcept;
     void setDevice(const GraphicsDevicePtr& device) noexcept;
