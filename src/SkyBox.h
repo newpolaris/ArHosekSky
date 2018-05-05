@@ -5,6 +5,7 @@
 #include <memory>
 #include <Types.h>
 #include <Mesh.h>
+#include <GraphicsTypes.h>
 
 // HosekSky forward declares
 struct ArHosekSkyModelState;
@@ -57,7 +58,7 @@ public:
     void update(const SkyboxParam& param);
     void render(const glm::mat4& view, const glm::mat4& projection);
 
-    GraphicsDevicePtr Skybox::getDevice() noexcept;
+    GraphicsDevicePtr getDevice() noexcept;
     void setDevice(const GraphicsDevicePtr& device) noexcept;
 
     static glm::vec3 SampleSky(const SkyCache& cache, glm::vec3 sampleDir);

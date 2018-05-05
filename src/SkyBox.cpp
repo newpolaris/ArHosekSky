@@ -1,3 +1,5 @@
+#include "SkyBox.h"
+
 #include <cassert>
 #include <glm/glm.hpp>
 #include <HosekSky/ArHosekSkyModel.h>
@@ -9,7 +11,6 @@
 #include <Types.h>
 #include <Mesh.h>
 #include <gli/gli.hpp>
-#include "SkyBox.h"
 
 namespace
 {
@@ -193,22 +194,23 @@ void Skybox::update(const SkyboxParam& param)
     auto device = getDevice();
     m_CubemapTex = device->createTexture(texture);
 
-    // glDepthMask(GL_TRUE);
-    // glEnable(GL_DEPTH_TEST);
-
     CHECKGLERROR();
 }
 
 void Skybox::render(const glm::mat4& view, const glm::mat4& projection)
 {
+    glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
     m_SkyShader->bind();
     m_SkyShader->setUniform("uView", view);
     m_SkyShader->setUniform("uProjection", projection);
     m_SkyShader->bindTexture("uTexSource", m_CubemapTex, 0);
     m_CubeMesh.draw();
+    glDepthMask(GL_FALSE);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
 }
 
 glm::vec3 Skybox::SampleSky(const SkyCache& cache, glm::vec3 sampleDir)
@@ -228,7 +230,6 @@ glm::vec3 Skybox::SampleSky(const SkyCache& cache, glm::vec3 sampleDir)
     radiance *= 683.0f;
 
     radiance *= FP16Scale;
-    radiance /= 20.f;
 
     return radiance;
 }

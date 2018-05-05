@@ -48,36 +48,10 @@ struct SceneSettings
     bool bUpdated = true;
 	bool bChapman = true;
     float angle = 76.f;
-    float intensity = 20.f;
-    float altitude = 1.f;
     float turbidity = 1.f;
-    const int numSamples = 4;
+    float exposure = -4.0f;
+    glm::vec3 groundAlbedo = glm::vec3(0.5f);
 };
-
-//
-// ref. [Preetham99][Hillaire16]
-//
-
-glm::vec3 ComputeCoefficientRayleigh(const glm::vec3& lambda)
-{
-    const float n = 1.0003f; // refractive index
-    const float N = 2.545e25f; // molecules per unit
-    const float p = 0.035f; // depolarization factor for standard air
-    const float pi = glm::pi<float>();
-
-    const glm::vec3 l4 = lambda*lambda*lambda*lambda;
-    return 8*pi*pi*pi*glm::pow(n*n - 1, 2) / (3*N*l4) * ((6 + 3*p)/(6 - 7*p));
-}
-
-// turbidity: (1.0 pure air to 64.0 thin fog)[Preetham99]
-glm::vec3 ComputeCoefficientMie(const glm::vec3& lambda, const glm::vec3& K, float turbidity)
-{
-    const int jungeexp = 4;
-    const float pi = glm::pi<float>();
-    const float c = (0.6544f*turbidity - 0.6510f)*1e-16f; // concentration factor
-    const float mie =  0.434f * c * pi * glm::pow(2*pi, jungeexp - 2);
-    return mie * K / glm::pow(lambda, glm::vec3(jungeexp - 2));
-}
 
 class ArHosekSky final : public gamecore::IGameApp
 {
@@ -102,11 +76,9 @@ private:
 
     std::vector<glm::vec2> m_Samples;
     Skybox m_Skybox;
-    SphereMesh m_Sphere;
     SceneSettings m_Settings;
 	TCamera m_Camera;
     FullscreenTriangleMesh m_ScreenTraingle;
-    ProgramShader m_SkyShader;
     ProgramShader m_BlitShader;
     GraphicsTexturePtr m_ScreenColorTex;
     GraphicsFramebufferPtr m_ColorRenderTarget;
@@ -115,8 +87,7 @@ private:
 
 CREATE_APPLICATION(ArHosekSky);
 
-ArHosekSky::ArHosekSky() noexcept :
-    m_Sphere(32, 1.0e5f)
+ArHosekSky::ArHosekSky() noexcept
 {
 }
 
@@ -141,12 +112,6 @@ void ArHosekSky::startup() noexcept
 	m_Device = createDevice(deviceDesc);
 	assert(m_Device);
 
-	m_SkyShader.setDevice(m_Device);
-	m_SkyShader.create();
-	m_SkyShader.addShader(GL_VERTEX_SHADER, "Scattering.Vertex");
-	m_SkyShader.addShader(GL_FRAGMENT_SHADER, "Scattering.Fragment");
-	m_SkyShader.link();
-
 	m_BlitShader.setDevice(m_Device);
 	m_BlitShader.create();
 	m_BlitShader.addShader(GL_VERTEX_SHADER, "BlitTexture.Vertex");
@@ -154,14 +119,12 @@ void ArHosekSky::startup() noexcept
 	m_BlitShader.link();
 
     m_ScreenTraingle.create();
-    m_Sphere.create();
     m_Skybox.setDevice(m_Device);
     m_Skybox.create();
 }
 
 void ArHosekSky::closeup() noexcept
 {
-    m_Sphere.destroy();
     m_ScreenTraingle.destroy();
 	profiler::shutdown();
 }
@@ -189,11 +152,11 @@ void ArHosekSky::update() noexcept
         sunDir = glm::vec3 {-0.579149902, 0.754439294, -0.308880031 };
         
         SkyboxParam param;
-        param.groundAlbedo = glm::vec3(0.5f);
+        param.groundAlbedo = m_Settings.groundAlbedo;
         param.position = m_Camera.getPosition();
         param.view = m_Camera.getViewMatrix();
         param.projection = m_Camera.getProjectionMatrix();
-        param.turbidity = 2.f;
+        param.turbidity = m_Settings.turbidity;
         param.sunDir = normalize(sunDir);
 
         m_Skybox.update(param);
@@ -213,11 +176,10 @@ void ArHosekSky::updateHUD() noexcept
         ImVec2(width / 4.0f, height - 20.0f),
         ImGuiWindowFlags_AlwaysAutoResize);
     bUpdated |= ImGui::Checkbox("Always redraw", &m_Settings.bProfile);
-	bUpdated |= ImGui::Checkbox("Use chapman approximation", &m_Settings.bChapman);
     bUpdated |= ImGui::SliderFloat("Sun Angle", &m_Settings.angle, 0.f, 120.f);
-    bUpdated |= ImGui::SliderFloat("Sun Intensity", &m_Settings.intensity, 10.f, 50.f);
-    bUpdated |= ImGui::SliderFloat("Altitude (km)", &m_Settings.altitude, 0.f, 100.f);
-    bUpdated |= ImGui::SliderFloat("Turbidity", &m_Settings.turbidity, 1.f, 64.f);
+    bUpdated |= ImGui::SliderFloat("Turbidity", &m_Settings.turbidity, 1.f, 100.f);
+    bUpdated |= ImGui::SliderFloat("Exposure", &m_Settings.exposure, -8.f, 8.f);
+    ImGui::ColorWheel("Ground albedo", glm::value_ptr<float>(m_Settings.groundAlbedo), 12.f);
     ImGui::Text("CPU %s: %10.5f ms\n", "main", s_CpuTick);
     ImGui::Text("GPU %s: %10.5f ms\n", "main", s_GpuTick);
     ImGui::PushItemWidth(180.0f);
@@ -235,13 +197,6 @@ void ArHosekSky::render() noexcept
     profiler::start(ProfilerTypeRender);
     if (bUpdate)
     {
-        // [Preetham99]
-        const glm::vec3 K = glm::vec3(0.686282f, 0.677739f, 0.663365f); // spectrum
-        const glm::vec3 lambda = glm::vec3(680e-9f, 550e-9f, 440e-9f);
-
-        glm::vec3 mie = ComputeCoefficientMie(lambda, K, m_Settings.turbidity);
-        glm::vec3 rayleigh = ComputeCoefficientRayleigh(lambda);
-
         auto& desc = m_ScreenColorTex->getGraphicsTextureDesc();
         m_Device->setFramebuffer(m_ColorRenderTarget);
         GLenum clearFlag = GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT;
@@ -249,24 +204,8 @@ void ArHosekSky::render() noexcept
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClearDepthf(1.0f);
         glClear(clearFlag);
-        glDisable(GL_CULL_FACE);
-        float angle = glm::radians(m_Settings.angle);
-		glm::vec2 resolution(desc.getWidth(), desc.getHeight());
-        glm::vec3 sunDir = glm::vec3(0.0f, glm::cos(angle), -glm::sin(angle));
-        m_SkyShader.bind();
-        m_SkyShader.setUniform("uModelToProj", m_Camera.getViewProjMatrix());
-        m_SkyShader.setUniform("uChapman", m_Settings.bChapman);
-        m_SkyShader.setUniform("uEarthRadius", 6360e3f);
-        m_SkyShader.setUniform("uAtmosphereRadius", 6420e3f);
-        m_SkyShader.setUniform("uEarthCenter", glm::vec3(0.f));
-        m_SkyShader.setUniform("uSunDir", sunDir);
-        m_SkyShader.setUniform("uSunIntensity", glm::vec3(m_Settings.intensity));
-        m_SkyShader.setUniform("uAltitude", m_Settings.altitude*1e3f);
-        m_SkyShader.setUniform("betaR0", rayleigh);
-        m_SkyShader.setUniform("betaM0", mie);
-        // m_Sphere.draw();
+
         m_Skybox.render(m_Camera.getViewMatrix(), m_Camera.getProjectionMatrix());
-        glEnable(GL_CULL_FACE);
     }
     // Tone mapping
     {
@@ -275,6 +214,7 @@ void ArHosekSky::render() noexcept
 
         glDisable(GL_DEPTH_TEST);
         m_BlitShader.bind();
+        m_BlitShader.setUniform("uExposure", m_Settings.exposure);
         m_BlitShader.bindTexture("uTexSource", m_ScreenColorTex, 0);
         m_ScreenTraingle.draw();
         glEnable(GL_DEPTH_TEST);

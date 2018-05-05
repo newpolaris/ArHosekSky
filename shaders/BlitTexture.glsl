@@ -16,6 +16,7 @@ void main()
 
 -- Fragment
 
+uniform float uExposure;
 uniform sampler2D uTexSource;
 
 // IN
@@ -92,10 +93,12 @@ void main()
 {
     vec3 samples = texture(uTexSource, vTexcoords).rgb;
 
-	// vec3 col = aces_fitted(samples);
+    vec3 col = samples * exp2(uExposure);
+
+	col = aces_fitted(col);
+	col = toSRGB(col);
+    // col = toneMapAndtoSRGB(col);
 	// col = toSRGB(col);
-    vec3 col = toneMapAndtoSRGB(samples);
-	// vec3 col = toSRGB(samples);
 
 	fragColor = col;
 }
