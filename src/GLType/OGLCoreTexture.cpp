@@ -10,7 +10,7 @@ __ImplementSubInterface(OGLCoreTexture, GraphicsTexture)
 OGLCoreTexture::OGLCoreTexture()
     : m_TextureID(GL_NONE)
     , m_Target(GL_INVALID_ENUM)
-    , m_Format(GL_INVALID_ENUM)
+    , m_FormatInternal(GL_INVALID_ENUM)
 	, m_PBO(GL_NONE)
 	, m_PBOSize(0)
 {
@@ -42,7 +42,7 @@ bool OGLCoreTexture::create(GLint width, GLint height, GLenum target, GraphicsFo
 
 	m_Target = target;
 	m_TextureID = TextureID;
-	m_Format = format;
+	m_FormatInternal = Format.Internal;
 
 	return true;
 }
@@ -167,7 +167,7 @@ bool OGLCoreTexture::create(const gli::texture& texture) noexcept
 	}
 	m_Target = Target;
 	m_TextureID = TextureID;
-	m_Format = Format.Type;
+	m_FormatInternal = Format.Internal;
 
     m_TextureDesc.setTarget(Texture.target());
     m_TextureDesc.setFormat(Texture.format());
@@ -266,9 +266,9 @@ GLuint OGLCoreTexture::getTextureID() const noexcept
     return m_TextureID;
 }
 
-GLenum OGLCoreTexture::getFormat() const noexcept
+GLenum OGLCoreTexture::getInternalFormat() const noexcept
 {
-    return m_Format;
+    return m_FormatInternal;
 }
 
 const GraphicsTextureDesc& OGLCoreTexture::getGraphicsTextureDesc() const noexcept
@@ -293,7 +293,7 @@ void OGLCoreTexture::destroy() noexcept
 		glDeleteTextures(1, &m_TextureID);
 		m_TextureID = GL_NONE;
 
-        m_Format = GL_INVALID_ENUM;
+        m_FormatInternal = GL_INVALID_ENUM;
 	}
 	m_Target = GL_INVALID_ENUM;
 
@@ -410,11 +410,6 @@ bool OGLCoreTexture::createFromMemoryHDR(const char* data, size_t size) noexcept
     return bSuccess;
 }
 
-bool OGLCoreTexture::map(uint32_t mipLevel, std::uint8_t** data) noexcept
-{
-    const GLsizei w = m_TextureDesc.getWidth(), h = m_TextureDesc.getHeight();
-    return map(0, 0, 0, w, h, 1, mipLevel, data);
-}
 
 bool OGLCoreTexture::map(uint32_t x, uint32_t y, uint32_t z, uint32_t w, uint32_t h, uint32_t d, std ::uint32_t mipLevel, std::uint8_t** data) noexcept
 {
@@ -448,6 +443,12 @@ bool OGLCoreTexture::map(uint32_t x, uint32_t y, uint32_t z, uint32_t w, uint32_
 	return *data ? true : false;
 }
 
+
+bool OGLCoreTexture::map(uint32_t mipLevel, std::uint8_t** data) noexcept
+{
+    const GLsizei w = m_TextureDesc.getWidth(), h = m_TextureDesc.getHeight();
+    return map(0, 0, 0, w, h, 1, mipLevel, data);
+}
 void OGLCoreTexture::unmap() noexcept
 {
 	assert(m_PBO != GL_NONE);

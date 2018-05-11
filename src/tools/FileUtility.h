@@ -117,4 +117,4 @@ namespace util
         is.write(reinterpret_cast<const T*>(&t), sizeof(R));
     }
 
-} // namespace Utility
+} // namespace util

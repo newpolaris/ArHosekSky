@@ -23,6 +23,7 @@ bool OGLGraphicsData::create(const GraphicsDataDesc& desc) noexcept
         return false;
 
     // TODO: Add other type
+    // TODO: https://www.khronos.org/opengl/wiki/Shader_Storage_Buffer_Object
     auto type = desc.getType();
     if (type == GraphicsDataType::UniformBuffer)
         m_Target =  GL_UNIFORM_BUFFER;

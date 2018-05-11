@@ -32,6 +32,7 @@
 #include <GameCore.h>
 
 #include "HosekSky/ArHosekSkyModel.h"
+#include "PostEffects.h"
 #include "Sampling.h"
 #include "Spectrum.h"
 
@@ -108,13 +109,6 @@ ArHosekSky::~ArHosekSky() noexcept
 
 void ArHosekSky::startup() noexcept
 {
-	profiler::initialize();
-    SampledSpectrum::initialize();
-
-    m_Camera.setFov(80.f);
-	m_Camera.setViewParams(glm::vec3(2.0f, 5.0f, 15.0f), glm::vec3(2.0f, 0.0f, 0.0f));
-	m_Camera.setMoveCoefficient(0.35f);
-
 	GraphicsDeviceDesc deviceDesc;
 #if __APPLE__
 	deviceDesc.setDeviceType(GraphicsDeviceType::GraphicsDeviceTypeOpenGL);
@@ -123,6 +117,10 @@ void ArHosekSky::startup() noexcept
 #endif
 	m_Device = createDevice(deviceDesc);
 	assert(m_Device);
+
+    SampledSpectrum::initialize();
+	profiler::initialize();
+    posteffects::initialize(m_Device);
 
 	m_BlitShader.setDevice(m_Device);
 	m_BlitShader.create();
@@ -133,6 +131,10 @@ void ArHosekSky::startup() noexcept
     m_ScreenTraingle.create();
     m_Skybox.setDevice(m_Device);
     m_Skybox.create();
+
+    m_Camera.setFov(80.f);
+	m_Camera.setViewParams(glm::vec3(2.0f, 5.0f, 15.0f), glm::vec3(2.0f, 0.0f, 0.0f));
+	m_Camera.setMoveCoefficient(0.35f);
 }
 
 void ArHosekSky::closeup() noexcept
@@ -161,7 +163,6 @@ void ArHosekSky::update() noexcept
     {
         float angle = glm::radians(m_Settings.angle);
         glm::vec3 sunDir = glm::vec3(0.0f, glm::cos(angle), -glm::sin(angle));
-        sunDir = glm::vec3 {-0.579149902, 0.754439294, -0.308880031 };
         
         SkyboxParam param;
         param.groundAlbedo = m_Settings.groundAlbedo;
@@ -229,6 +230,8 @@ void ArHosekSky::render() noexcept
     }
     // Tone mapping
     {
+        posteffects::render(m_ScreenColorTex);
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, getFrameWidth(), getFrameHeight());
 
@@ -288,6 +291,8 @@ void ArHosekSky::framesizeCallback(int32_t width, int32_t height) noexcept
     desc.addComponent(GraphicsAttachmentBinding(depthTex, GL_DEPTH_ATTACHMENT));
     
     m_ColorRenderTarget = m_Device->createFramebuffer(desc);;
+
+    posteffects::framesizeChange(width, height);
 }
 
 void ArHosekSky::motionCallback(float xpos, float ypos, bool bPressed) noexcept

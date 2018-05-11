@@ -48,9 +48,7 @@ public:
     bool setUniform(const std::string& name, const glm::mat4& v) const;
     bool bindTexture(const std::string& name, const GraphicsTexturePtr& texture, GLint unit);
     bool bindBuffer(const std::string& name, const GraphicsDataPtr& data);
-
-    // Compute
-    bool bindImage(const std::string &name, const OGLCoreTexturePtr &texture, GLint unit, GLint level, GLboolean layered, GLint layer, GLenum access);
+    bool bindImage(const std::string& name, const GraphicsTexturePtr& texture, GLint unit, GLint level, GLboolean layered, GLint layer, GLenum access);
 
     void Dispatch( GLuint GroupCountX = 1, GLuint GroupCountY = 1, GLuint GroupCountZ = 1 );
     void Dispatch1D( GLuint ThreadCountX, GLuint GroupSizeX = 64);
@@ -77,7 +75,7 @@ inline void ProgramShader::Dispatch( GLuint GroupCountX, GLuint GroupCountY, GLu
 
 inline void ProgramShader::Dispatch1D( GLuint ThreadCountX, GLuint GroupSizeX )
 {
-    Dispatch( Math::DivideByMultiple(ThreadCountX, GroupSizeX), 1, 1 );
+    Dispatch(Math::DivideByMultiple(ThreadCountX, GroupSizeX), 1, 1);
 }
 
 inline void ProgramShader::Dispatch2D( GLuint ThreadCountX, GLuint ThreadCountY, GLuint GroupSizeX, GLuint GroupSizeY )

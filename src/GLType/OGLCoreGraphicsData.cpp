@@ -29,7 +29,7 @@ bool OGLCoreGraphicsData::create(const GraphicsDataDesc& desc) noexcept
     GLbitfield flags = OGLTypes::translate(desc.getUsage());
     glNamedBufferStorage(m_BufferID, desc.getStreamSize(), desc.getStream(), flags);
 
-    // TODO: check bufer can handle vertex/index buffer without setting.
+    // TODO: check that is buffer able to handle vertex/index without setup
 
 	m_Desc = desc;
     return true;

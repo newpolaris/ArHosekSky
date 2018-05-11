@@ -10,7 +10,7 @@ __ImplementSubInterface(OGLTexture, GraphicsTexture)
 OGLTexture::OGLTexture()
     : m_TextureID(GL_NONE)
     , m_Target(GL_INVALID_ENUM)
-    , m_Format(GL_INVALID_ENUM)
+    , m_FormatInternal(GL_INVALID_ENUM)
 	, m_PBO(GL_NONE)
 	, m_PBOSize(0)
 {
@@ -43,7 +43,7 @@ bool OGLTexture::create(GLint width, GLint height, GLenum target, GraphicsFormat
 
 	m_Target = target;
 	m_TextureID = TextureID;
-	m_Format = format;
+	m_FormatInternal = Format.Internal;
 
 	return true;
 }
@@ -169,7 +169,7 @@ bool OGLTexture::create(const gli::texture& texture) noexcept
 	}
 	m_Target = Target;
 	m_TextureID = TextureID;
-	m_Format = Format.Type;
+	m_FormatInternal = Format.Internal;
 
     m_TextureDesc.setTarget(Texture.target());
     m_TextureDesc.setFormat(Texture.format());
@@ -266,9 +266,9 @@ GLuint OGLTexture::getTextureID() const noexcept
     return m_TextureID;
 }
 
-GLenum OGLTexture::getFormat() const noexcept
+GLenum OGLTexture::getInternalFormat() const noexcept
 {
-    return m_Format;
+    return m_FormatInternal;
 }
 
 const GraphicsTextureDesc& OGLTexture::getGraphicsTextureDesc() const noexcept
@@ -293,7 +293,7 @@ void OGLTexture::destroy() noexcept
 		glDeleteTextures(1, &m_TextureID);
 		m_TextureID = GL_NONE;
 
-        m_Format = GL_INVALID_ENUM;
+        m_FormatInternal = GL_INVALID_ENUM;
 	}
 	m_Target = GL_INVALID_ENUM;
 
