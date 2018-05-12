@@ -165,7 +165,7 @@ void Skybox::update(const SkyboxParam& param)
     // Use code from 'BakingLab'
     //
     // Update the cache, if necessary
-    if (!m_SkyCache.update(param) && m_CubemapTex)
+    if (!m_SkyCache.update(param) && m_SkyCubemapTex)
         return;
 
     const uint32_t numFace = 6;
@@ -198,7 +198,7 @@ void Skybox::update(const SkyboxParam& param)
     }
 
     auto device = getDevice();
-    m_CubemapTex = device->createTexture(texture);
+    m_SkyCubemapTex = device->createTexture(texture);
 
     CHECKGLERROR();
 }
@@ -216,7 +216,7 @@ void Skybox::render(bool bEnableSun, float sunSize, glm::vec3 sunColor, glm::mat
     m_SkyShader->setUniform("uCosSunAngularRadius", std::cos(glm::radians(sunSize)));
     m_SkyShader->setUniform("uView", view);
     m_SkyShader->setUniform("uProjection", projection);
-    m_SkyShader->bindTexture("uTexSource", m_CubemapTex, 0);
+    m_SkyShader->bindTexture("uTexSource", m_SkyCubemapTex, 0);
     m_CubeMesh.draw();
     glDepthMask(GL_FALSE);
     glEnable(GL_DEPTH_TEST);
@@ -226,6 +226,9 @@ void Skybox::render(bool bEnableSun, float sunSize, glm::vec3 sunColor, glm::mat
 glm::vec3 Skybox::SampleSky(const SkyCache& cache, glm::vec3 sampleDir)
 {
     assert(cache.m_StateR != nullptr);
+
+    // fix z direction
+    sampleDir.z = -sampleDir.z;
 
     float gamma = angleBetween(sampleDir, cache.m_SunDir);
     float theta = angleBetween(sampleDir, glm::vec3(0, 1, 0));

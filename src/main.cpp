@@ -23,7 +23,6 @@
 
 #include <GraphicsTypes.h>
 #include <Skybox.h>
-#include <Mesh.h>
 
 #include <fstream>
 #include <memory>
@@ -32,7 +31,7 @@
 #include <GameCore.h>
 
 #include "HosekSky/ArHosekSkyModel.h"
-#include "PostEffects.h"
+#include "PostProcess.h"
 #include "Sampling.h"
 #include "Spectrum.h"
 
@@ -90,8 +89,6 @@ private:
     Skybox m_Skybox;
     SceneSettings m_Settings;
 	TCamera m_Camera;
-    FullscreenTriangleMesh m_ScreenTraingle;
-    ProgramShader m_BlitShader;
     GraphicsTexturePtr m_ScreenColorTex;
     GraphicsFramebufferPtr m_ColorRenderTarget;
     GraphicsDevicePtr m_Device;
@@ -120,15 +117,8 @@ void ArHosekSky::startup() noexcept
 
     SampledSpectrum::initialize();
 	profiler::initialize();
-    posteffects::initialize(m_Device);
+    postprocess::initialize(m_Device);
 
-	m_BlitShader.setDevice(m_Device);
-	m_BlitShader.create();
-	m_BlitShader.addShader(GL_VERTEX_SHADER, "BlitTexture.Vertex");
-	m_BlitShader.addShader(GL_FRAGMENT_SHADER, "BlitTexture.Fragment");
-	m_BlitShader.link();
-
-    m_ScreenTraingle.create();
     m_Skybox.setDevice(m_Device);
     m_Skybox.create();
 
@@ -139,7 +129,6 @@ void ArHosekSky::startup() noexcept
 
 void ArHosekSky::closeup() noexcept
 {
-    m_ScreenTraingle.destroy();
 	profiler::shutdown();
 }
 
@@ -175,6 +164,8 @@ void ArHosekSky::update() noexcept
 
         m_Skybox.update(param);
     }
+
+    postprocess::update(m_Settings.exposure);
 }
 
 void ArHosekSky::updateHUD() noexcept
@@ -228,20 +219,8 @@ void ArHosekSky::render() noexcept
             m_Camera.getViewMatrix(),
             m_Camera.getProjectionMatrix());
     }
-    // Tone mapping
-    {
-        posteffects::render(m_ScreenColorTex);
+    postprocess::render(m_ScreenColorTex);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, getFrameWidth(), getFrameHeight());
-
-        glDisable(GL_DEPTH_TEST);
-        m_BlitShader.bind();
-        m_BlitShader.setUniform("uExposure", m_Settings.exposure);
-        m_BlitShader.bindTexture("uTexSource", m_ScreenColorTex, 0);
-        m_ScreenTraingle.draw();
-        glEnable(GL_DEPTH_TEST);
-    }
     profiler::stop(ProfilerTypeRender);
     profiler::tick(ProfilerTypeRender, s_CpuTick, s_GpuTick);
 
@@ -292,7 +271,7 @@ void ArHosekSky::framesizeCallback(int32_t width, int32_t height) noexcept
     
     m_ColorRenderTarget = m_Device->createFramebuffer(desc);;
 
-    posteffects::framesizeChange(width, height);
+    postprocess::framesizeChange(width, height);
 }
 
 void ArHosekSky::motionCallback(float xpos, float ypos, bool bPressed) noexcept
@@ -381,9 +360,9 @@ glm::vec3 ArHosekSky::SunLuminance(bool& cached)
     SampledSpectrum solarRadiance;
 
     const uint64_t NumDiscSamples = 8;
-    for(uint64_t x = 0; x < NumDiscSamples; ++x)
+    for (uint64_t x = 0; x < NumDiscSamples; ++x)
     {
-        for(uint64_t y = 0; y < NumDiscSamples; ++y)
+        for (uint64_t y = 0; y < NumDiscSamples; ++y)
         {
             float u = (x + 0.5f) / NumDiscSamples;
             float v = (y + 0.5f) / NumDiscSamples;

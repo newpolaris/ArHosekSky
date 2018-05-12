@@ -18,6 +18,7 @@ void main()
 
 uniform float uExposure;
 uniform sampler2D uTexSource;
+uniform sampler2D uTexBloom;
 
 // IN
 in vec2 vTexcoords;
@@ -92,9 +93,10 @@ vec3 toneMapAndtoSRGB(vec3 L)
 void main() 
 {
     vec3 samples = texture(uTexSource, vTexcoords).rgb;
+    vec3 bloom = texture(uTexBloom, vTexcoords).rgb;
+    vec3 col = samples + bloom;
 
-    vec3 col = samples * exp2(uExposure);
-
+    col = col * exp2(uExposure);
 	col = aces_fitted(col);
 	col = toSRGB(col);
     // col = toneMapAndtoSRGB(col);

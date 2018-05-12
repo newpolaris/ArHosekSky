@@ -4,7 +4,7 @@
 
 layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 layout(rgba16f, binding=0) uniform readonly image2D uSource;
-layout(r16f, binding=1) uniform writeonly image2D uTarget;
+layout(rgba16f, binding=1) uniform writeonly image2D uTarget;
 
 float Luminance(vec3 color)
 {
@@ -22,6 +22,8 @@ void main()
 		return;
 
     vec3 color = imageLoad(uSource, ivec2(x, y)).rgb;
-    float logLuminance = log(max(Luminance(color), 0.00001f));
-	imageStore(uTarget, ivec2(x, y), vec4(logLuminance));
+    // float logLuminance = log(max(Luminance(color), 0.00001f));
+    if (Luminance(color) < 20.0)
+    	color = vec3(0.0);
+	imageStore(uTarget, ivec2(x, y), vec4(color, 0.0));
 }

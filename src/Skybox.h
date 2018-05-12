@@ -70,6 +70,6 @@ private:
     SkyCache m_SkyCache;
     ShaderPtr m_SkyShader;
     CubeMesh m_CubeMesh;
-    GraphicsTexturePtr m_CubemapTex;
+    GraphicsTexturePtr m_SkyCubemapTex;
     GraphicsDeviceWeakPtr m_Device;
 };
