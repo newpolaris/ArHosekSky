@@ -6,6 +6,7 @@
 #include <GLType/ProgramShader.h>
 #include <GLType/GraphicsDevice.h>
 #include <GLType/GraphicsTexture.h>
+#include <GLType/GraphicsFramebuffer.h>
 
 namespace postprocess
 {
@@ -26,6 +27,7 @@ namespace postprocess
     ShaderPtr m_BlitColor;
     FullscreenTriangleMesh m_ScreenTraingle;
     GraphicsTexturePtr m_BlurTempTexture;
+    std::vector<GraphicsFramebufferPtr> m_BlurTargets;
     std::vector<GraphicsTexturePtr> m_DownsampledLumaTextures;
 }
 
@@ -63,15 +65,16 @@ void postprocess::initialize(const GraphicsDevicePtr& device) noexcept
     m_BlurHori = std::make_shared<ProgramShader>();
     m_BlurHori->setDevice(device);
     m_BlurHori->create();
-    m_BlurHori->addShader(GL_COMPUTE_SHADER, "BlurHorizontal.Compute");
+	m_BlurHori->addShader(GL_VERTEX_SHADER, "BlurHorizontal.Vertex");
+	m_BlurHori->addShader(GL_FRAGMENT_SHADER, "BlurHorizontal.Fragment");
     m_BlurHori->link();
 
     m_BlurVert = std::make_shared<ProgramShader>();
     m_BlurVert->setDevice(device);
     m_BlurVert->create();
-    m_BlurVert->addShader(GL_COMPUTE_SHADER, "BlurVertical.Compute");
+	m_BlurVert->addShader(GL_VERTEX_SHADER, "BlurVertical.Vertex");
+	m_BlurVert->addShader(GL_FRAGMENT_SHADER, "BlurVertical.Fragment");
     m_BlurVert->link();
-
 
     m_Device = device;
 }
@@ -118,21 +121,22 @@ void postprocess::updateExposure(std::vector<GraphicsTexturePtr>& textures) noex
 
 void postprocess::processBloom(const GraphicsTexturePtr& source) noexcept
 {
+    auto device = getDevice();
     auto width = source->getGraphicsTextureDesc().getWidth();
     auto height = source->getGraphicsTextureDesc().getHeight();
 
     const int numBlurTimes = 8;
     for (int i = 0; i < numBlurTimes; i++)
     {
+        device->setFramebuffer(m_BlurTargets[1]);
         m_BlurVert->bind();
-        m_BlurVert->bindTexture("uSource", source, 0);
-        m_BlurVert->bindImage("uTarget", m_BlurTempTexture, 0, 0, false, 0, GL_WRITE_ONLY);
-        m_BlurVert->Dispatch2D(width, height);
+        m_BlurVert->bindTexture("uTexSource", source, 0);
+        m_ScreenTraingle.draw();
 
+        device->setFramebuffer(m_BlurTargets[0]);
         m_BlurHori->bind();
-        m_BlurHori->bindTexture("uSource", m_BlurTempTexture, 0);
-        m_BlurHori->bindImage("uTarget", source, 0, 0, false, 0, GL_WRITE_ONLY);
-        m_BlurHori->Dispatch2D(width, height);
+        m_BlurHori->bindTexture("uTexSource", m_BlurTempTexture, 0);
+        m_ScreenTraingle.draw();
     }
 }
 
@@ -192,6 +196,16 @@ void postprocess::framesizeChange(int32_t width, int32_t height) noexcept
     blurDesc.setHeight(height);
     blurDesc.setFormat(gli::FORMAT_RGBA16_SFLOAT_PACK16);
     m_BlurTempTexture = device->createTexture(blurDesc);
+
+    auto logLumaFullTexture = m_DownsampledLumaTextures.front();
+    auto blurTargetTextures = { logLumaFullTexture, m_BlurTempTexture };
+    for (auto target : blurTargetTextures)
+    {
+        GraphicsFramebufferDesc desc;
+        desc.addComponent(GraphicsAttachmentBinding(target, GL_COLOR_ATTACHMENT0));
+        device->createFramebuffer(desc);
+        m_BlurTargets.emplace_back(std::move(device->createFramebuffer(desc)));
+    }
 
     m_FrameWidth = width;
     m_FrameHeight = height;
