@@ -22,14 +22,15 @@ public:
 	void unbind(GLuint unit) const;
 	void generateMipmap();
 
-    virtual bool map(std::uint32_t mipLevel, std::uint8_t** data) noexcept override;
-    virtual bool map(std::uint32_t x, std::uint32_t y, std::uint32_t z, std::uint32_t w, std::uint32_t h, std::uint32_t d, std::uint32_t mipLevel, std::uint8_t** data) noexcept override; 
+    bool map(std::uint32_t mipLevel, std::uint8_t** data) noexcept override;
+    bool map(std::uint32_t x, std::uint32_t y, std::uint32_t z, std::uint32_t w, std::uint32_t h, std::uint32_t d, std::uint32_t mipLevel, std::uint8_t** data) noexcept override; 
 	void unmap() noexcept override;
 
     GLuint getTextureID() const noexcept;
     GLenum getInternalFormat() const noexcept;
 
     const GraphicsTextureDesc& getGraphicsTextureDesc() const noexcept override;
+    const GraphicsFramebufferPtr& getGraphicsRenderTarget() const noexcept override;
 
 private:
 
@@ -43,6 +44,8 @@ private:
     bool createFromMemoryHDR(const char* data, size_t dataSize) noexcept; // HDR
     bool createFromMemoryLDR(const char* data, size_t dataSize) noexcept; // JPG, PNG, TGA, BMP, PSD, GIF, HDR, PIC files
     bool createFromMemoryZIP(const char* data, size_t dataSize) noexcept; // ZLIB
+
+    void setGraphicsRenderTarget(const GraphicsFramebufferPtr& target) noexcept;
 
 private:
 
@@ -65,5 +68,6 @@ private:
 	GLuint m_PBO;
 	GLsizei m_PBOSize;
 	GraphicsDeviceWeakPtr m_Device;
+    GraphicsFramebufferPtr m_RenderTarget;
 };
 

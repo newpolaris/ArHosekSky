@@ -10,6 +10,8 @@ public:
     OGLFramebuffer() noexcept;
     ~OGLFramebuffer() noexcept;
 
+    const GraphicsFramebufferDesc& getGraphicsFramebufferDesc() const noexcept;
+
     bool create(const GraphicsFramebufferDesc& desc) noexcept;
 	void destroy() noexcept;
 

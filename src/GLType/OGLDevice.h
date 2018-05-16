@@ -24,5 +24,7 @@ public:
 
 private:
 
+    GraphicsFramebufferPtr createRenderTarget(const GraphicsTexturePtr& texture) noexcept;
+
     GraphicsDeviceDesc m_Desc;
 };

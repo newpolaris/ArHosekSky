@@ -50,4 +50,10 @@ public:
 
     GraphicsFramebuffer() noexcept;
     virtual ~GraphicsFramebuffer() noexcept;
+
+    virtual const GraphicsFramebufferDesc& getGraphicsFramebufferDesc() const noexcept = 0;
+
+private:
+    GraphicsFramebuffer(GraphicsFramebuffer&) noexcept = delete;
+    GraphicsFramebuffer& operator=(const GraphicsFramebuffer&) noexcept = delete;
 };

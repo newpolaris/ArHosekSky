@@ -95,8 +95,13 @@ public:
 	virtual void unmap() noexcept = 0;
 
     virtual const GraphicsTextureDesc& getGraphicsTextureDesc() const noexcept = 0;
+    virtual const GraphicsFramebufferPtr& getGraphicsRenderTarget() const noexcept = 0;
 
 private:
+
+    friend class GraphicsDevice;
+
+    virtual void setGraphicsRenderTarget(const GraphicsFramebufferPtr& target) noexcept = 0;
 
     GraphicsTexture(const GraphicsTexture& texture) = delete;
     GraphicsTexture& operator=(const GraphicsTexture& texture) = delete;

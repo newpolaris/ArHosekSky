@@ -15,6 +15,11 @@ OGLFramebuffer::~OGLFramebuffer() noexcept
     destroy();
 }
 
+const GraphicsFramebufferDesc& OGLFramebuffer::getGraphicsFramebufferDesc() const noexcept
+{
+    return m_FramebufferDesc;
+}
+
 void OGLFramebuffer::bind() noexcept
 {
     assert(m_FBO != GL_NONE);

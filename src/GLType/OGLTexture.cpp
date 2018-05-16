@@ -261,6 +261,16 @@ bool OGLTexture::createFromMemoryZIP(const char* data, size_t dataSize) noexcept
     return bSuccess;
 }
 
+void OGLTexture::setGraphicsRenderTarget(const GraphicsFramebufferPtr& target) noexcept
+{
+    m_RenderTarget = target;
+}
+
+const GraphicsFramebufferPtr& OGLTexture::getGraphicsRenderTarget() const noexcept
+{
+    return m_RenderTarget;
+}
+
 GLuint OGLTexture::getTextureID() const noexcept
 {
     return m_TextureID;

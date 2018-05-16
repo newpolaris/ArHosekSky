@@ -72,6 +72,13 @@ GraphicsTexturePtr OGLDevice::createTexture(const gli::texture& resource) noexce
     return nullptr;
 }
 
+GraphicsFramebufferPtr OGLDevice::createRenderTarget(const GraphicsTexturePtr& texture) noexcept
+{
+    GraphicsFramebufferDesc desc;
+    desc.addComponent(GraphicsAttachmentBinding(texture, GL_COLOR_ATTACHMENT0));
+    return createFramebuffer(desc);
+}
+
 GraphicsTexturePtr OGLDevice::createTexture(const GraphicsTextureDesc& desc) noexcept
 {
     if (m_Desc.getDeviceType() == GraphicsDeviceType::GraphicsDeviceTypeOpenGLCore)
@@ -79,18 +86,20 @@ GraphicsTexturePtr OGLDevice::createTexture(const GraphicsTextureDesc& desc) noe
         auto texture = std::make_shared<OGLCoreTexture>();
         if (!texture) return nullptr;
 		texture->setDevice(this->downcast_pointer<OGLDevice>());
-        if (texture->create(desc))
-            return texture;
-        return nullptr;
+        if (!texture->create(desc))
+            return nullptr;
+        // texture->setGraphicsRenderTarget(createRenderTarget(texture));
+        return texture;
     }
     else if (m_Desc.getDeviceType() == GraphicsDeviceType::GraphicsDeviceTypeOpenGL)
     {
         auto texture = std::make_shared<OGLTexture>();
         if (!texture) return nullptr;
 		texture->setDevice(this->downcast_pointer<OGLDevice>());
-        if (texture->create(desc))
-            return texture;
-        return nullptr;
+        if (!texture->create(desc))
+            return nullptr;
+        // texture->setGraphicsRenderTarget(createRenderTarget(texture));
+        return texture;
     }
     return nullptr;
 }
