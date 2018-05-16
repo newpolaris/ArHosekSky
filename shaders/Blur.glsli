@@ -7,9 +7,38 @@ out vec3 fragColor;
 uniform sampler2D uTexSource;
 uniform float weight[5] = float[](0.227027, 0.1945946, 0.1216216, 0.054054, 0.016216);
 
+float CalcGaussianWeight(int sampleDist, float sigma)
+{
+    float g = 1.0 / sqrt(2.0 * 3.14159 * sigma * sigma);
+    return (g * exp(-(sampleDist * sampleDist) / (2 * sigma * sigma)));
+}
+
+vec4 Blur(sampler2D tex, vec2 coords, vec2 texScale, float sigma, bool bNormalize)
+{
+    vec2 imagesize = textureSize(tex, 0);
+
+    vec4 color = vec4(0.0);
+    float weightSum = 0.0;
+    for (int i = -7; i < 7; i++)
+    {
+        float weight = CalcGaussianWeight(i, sigma);
+        weightSum += weight;
+        vec2 texCoord = coords;
+        texCoord += (i / imagesize) * texScale;
+        vec4 s = texture(tex, texCoord);
+        color += s * weight;
+    }
+
+    if (bNormalize)
+        color /= weightSum;
+    return color;
+}
+
+
 // ----------------------------------------------------------------------------
 void main() 
 {
+#if 0
     vec2 s = textureSize(uTexSource, 0);
     vec3 samples = texture(uTexSource, vTexcoords).rgb;
 
@@ -29,4 +58,12 @@ void main()
     }
 
     fragColor = color;
+#else
+    float uBloomBlurSigma = 2.5;
+    #if BLUR_HORIZONTAL
+        fragColor = Blur(uTexSource, vTexcoords, vec2(1, 0), uBloomBlurSigma, false).rgb;
+    #else
+        fragColor = Blur(uTexSource, vTexcoords, vec2(0, 1), uBloomBlurSigma, false).rbg;
+    #endif
+#endif
 }

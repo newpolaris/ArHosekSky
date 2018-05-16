@@ -130,7 +130,7 @@ void postprocess::processBloom(const GraphicsTexturePtr& source, GraphicsTexture
     m_Bloom->bindTexture("uTexSource", source, 0);
     m_ScreenTraingle.draw();
 
-    const int numBlurTimes = 4;
+    const int numBlurTimes = 2;
     for (int i = 0; i < numBlurTimes; i++)
     {
         device->setFramebuffer(m_BlurTexture->getGraphicsRenderTarget());
