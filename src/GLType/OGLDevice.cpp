@@ -88,7 +88,7 @@ GraphicsTexturePtr OGLDevice::createTexture(const GraphicsTextureDesc& desc) noe
 		texture->setDevice(this->downcast_pointer<OGLDevice>());
         if (!texture->create(desc))
             return nullptr;
-        // texture->setGraphicsRenderTarget(createRenderTarget(texture));
+        texture->setGraphicsRenderTarget(createRenderTarget(texture));
         return texture;
     }
     else if (m_Desc.getDeviceType() == GraphicsDeviceType::GraphicsDeviceTypeOpenGL)
@@ -98,7 +98,7 @@ GraphicsTexturePtr OGLDevice::createTexture(const GraphicsTextureDesc& desc) noe
 		texture->setDevice(this->downcast_pointer<OGLDevice>());
         if (!texture->create(desc))
             return nullptr;
-        // texture->setGraphicsRenderTarget(createRenderTarget(texture));
+        texture->setGraphicsRenderTarget(createRenderTarget(texture));
         return texture;
     }
     return nullptr;

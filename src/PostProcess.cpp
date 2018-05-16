@@ -15,7 +15,7 @@ namespace postprocess
     GraphicsDevicePtr getDevice();
 
     void extractLuminance(const GraphicsTexturePtr& source, GraphicsTexturePtr& target) noexcept;
-    void processBloom(const GraphicsTexturePtr& source) noexcept;
+    void processBloom(const GraphicsTexturePtr& source, GraphicsTexturePtr target) noexcept;
     void updateExposure(std::vector<GraphicsTexturePtr>& textures) noexcept;
 
     float m_Exposure;
@@ -28,9 +28,7 @@ namespace postprocess
     ShaderPtr m_BlitColor;
     FullscreenTriangleMesh m_ScreenTraingle;
     GraphicsTexturePtr m_BlurTexture;
-    GraphicsFramebufferPtr m_BlurTarget;
     GraphicsTexturePtr m_BloomTexture;
-    GraphicsFramebufferPtr m_BloomTarget;
     std::vector<GraphicsTexturePtr> m_DownsampledLumaTextures;
 }
 
@@ -123,11 +121,11 @@ void postprocess::updateExposure(std::vector<GraphicsTexturePtr>& textures) noex
     }
 }
 
-void postprocess::processBloom(const GraphicsTexturePtr& source) noexcept
+void postprocess::processBloom(const GraphicsTexturePtr& source, GraphicsTexturePtr dest) noexcept
 {
     auto device = getDevice();
 
-    device->setFramebuffer(m_BloomTarget);
+    device->setFramebuffer(dest->getGraphicsRenderTarget());
     m_Bloom->bind();
     m_Bloom->bindTexture("uTexSource", source, 0);
     m_ScreenTraingle.draw();
@@ -135,12 +133,12 @@ void postprocess::processBloom(const GraphicsTexturePtr& source) noexcept
     const int numBlurTimes = 4;
     for (int i = 0; i < numBlurTimes; i++)
     {
-        device->setFramebuffer(m_BlurTarget);
+        device->setFramebuffer(m_BlurTexture->getGraphicsRenderTarget());
         m_BlurVert->bind();
-        m_BlurVert->bindTexture("uTexSource", m_BloomTexture, 0);
+        m_BlurVert->bindTexture("uTexSource", dest, 0);
         m_ScreenTraingle.draw();
 
-        device->setFramebuffer(m_BloomTarget);
+        device->setFramebuffer(dest->getGraphicsRenderTarget());
         m_BlurHori->bind();
         m_BlurHori->bindTexture("uTexSource", m_BlurTexture, 0);
         m_ScreenTraingle.draw();
@@ -162,7 +160,7 @@ void postprocess::render(const GraphicsTexturePtr& source) noexcept
 
     // extractLuminance(source, logLumaFullTexture);
     // updateExposure(m_DownsampledLumaTextures);
-    processBloom(source);
+    processBloom(source, m_BloomTexture);
 
     // tone mapping
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -215,16 +213,6 @@ void postprocess::framesizeChange(int32_t width, int32_t height) noexcept
     halfDesc.setWrapT(GL_CLAMP);
     m_BlurTexture = device->createTexture(halfDesc);
     m_BloomTexture = device->createTexture(halfDesc);
-    {
-        GraphicsFramebufferDesc desc;
-        desc.addComponent(GraphicsAttachmentBinding(m_BlurTexture, GL_COLOR_ATTACHMENT0));
-        m_BlurTarget = std::move(device->createFramebuffer(desc));
-    }
-    {
-        GraphicsFramebufferDesc desc;
-        desc.addComponent(GraphicsAttachmentBinding(m_BloomTexture, GL_COLOR_ATTACHMENT0));
-        m_BloomTarget = std::move(device->createFramebuffer(desc));
-    }
 
     m_FrameWidth = width;
     m_FrameHeight = height;
