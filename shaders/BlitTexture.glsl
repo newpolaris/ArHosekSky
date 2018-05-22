@@ -19,6 +19,7 @@ void main()
 uniform float uExposure;
 uniform sampler2D uTexSource;
 uniform sampler2D uTexBloom;
+uniform sampler2D uTexAvgLuma;
 
 // IN
 in vec2 vTexcoords;
@@ -89,18 +90,42 @@ vec3 toneMapAndtoSRGB(vec3 L)
     return L;
 }
 
+float getAvgLuminance(sampler2D tex)
+{
+    return texelFetch(tex, ivec2(0, 0), 0).x;
+}
+
+float log2Exposure(float avgLuminance)
+{
+    const float FP16Scale = 0.0009765625f;
+
+    float exposure = 0.0f;
+
+    exposure = uExposure;
+    exposure -= log2(FP16Scale);
+
+    return exposure;
+}
+
+// from code on 'BakingLab'
+vec3 calcExposedColor(vec3 color, float avgLuminance, float offset)
+{
+    float exposure = log2Exposure(avgLuminance);
+    exposure += offset;
+    return exp2(exposure) * color;
+}
+
 // ----------------------------------------------------------------------------
 void main() 
 {
     vec3 samples = texture(uTexSource, vTexcoords).rgb;
     vec3 bloom = texture(uTexBloom, vTexcoords).rgb;
-    vec3 col = samples + bloom;
+    vec3 color = samples + bloom;
 
-    col = col * exp2(uExposure);
-	col = aces_fitted(col);
-	col = toSRGB(col);
-    // col = toneMapAndtoSRGB(col);
-	// col = toSRGB(col);
+    float avgLuminance = getAvgLuminance(uTexAvgLuma);
+    color = calcExposedColor(color, avgLuminance, 0.0);
+	color = aces_fitted(color);
+	color = toSRGB(color);
 
-	fragColor = col;
+	fragColor = color;
 }

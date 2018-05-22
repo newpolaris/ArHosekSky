@@ -53,7 +53,7 @@ struct SceneSettings
     bool bEnableSun = true;
     float angle = 76.f;
     float turbidity = 1.f;
-    float exposure = -4.0f;
+    float exposure = -16.0f;
     float sunSize = 0.27f;
     glm::vec3 groundAlbedo = glm::vec3(0.5f);
 

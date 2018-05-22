@@ -125,7 +125,13 @@ void postprocess::processBloom(const GraphicsTexturePtr& source, GraphicsTexture
 {
     auto device = getDevice();
 
+    auto desc = dest->getGraphicsTextureDesc();
+    auto width = desc.getWidth();
+    auto height = desc.getHeight();
+
+    glViewport(0, 0, width, height);
     device->setFramebuffer(dest->getGraphicsRenderTarget());
+
     m_Bloom->bind();
     m_Bloom->bindTexture("uTexSource", source, 0);
     m_ScreenTraingle.draw();
@@ -150,16 +156,10 @@ void postprocess::render(const GraphicsTexturePtr& source) noexcept
     assert(m_DownsampledLumaTextures.size() > 1);
 
     auto logLumaFullTexture = m_DownsampledLumaTextures.front();
-    auto Texture = m_DownsampledLumaTextures.front();
+    auto logLumaAvgTexture = m_DownsampledLumaTextures.back();
 
-    auto desc = m_BloomTexture->getGraphicsTextureDesc();
-    auto width = desc.getWidth();
-    auto height = desc.getHeight();
-
-    glViewport(0, 0, width, height);
-
-    // extractLuminance(source, logLumaFullTexture);
-    // updateExposure(m_DownsampledLumaTextures);
+    extractLuminance(source, logLumaFullTexture);
+    updateExposure(m_DownsampledLumaTextures);
     processBloom(source, m_BloomTexture);
 
     // tone mapping
@@ -171,6 +171,7 @@ void postprocess::render(const GraphicsTexturePtr& source) noexcept
     m_BlitColor->setUniform("uExposure", m_Exposure);
     m_BlitColor->bindTexture("uTexSource", source, 0);
     m_BlitColor->bindTexture("uTexBloom", m_BloomTexture, 1);
+    m_BlitColor->bindTexture("uTexAvgLuma", logLumaAvgTexture, 2);
     m_ScreenTraingle.draw();
     glEnable(GL_DEPTH_TEST);
 }
@@ -189,7 +190,7 @@ void postprocess::framesizeChange(int32_t width, int32_t height) noexcept
     GraphicsTextureDesc lumaDesc;
     lumaDesc.setWidth(w);
     lumaDesc.setHeight(h);
-    lumaDesc.setFormat(gli::FORMAT_RGBA16_SFLOAT_PACK16);
+    lumaDesc.setFormat(gli::FORMAT_R16_SFLOAT_PACK16);
     m_DownsampledLumaTextures.emplace_back(std::move(device->createTexture(lumaDesc)));
 
     while (w > 1 && h > 1)

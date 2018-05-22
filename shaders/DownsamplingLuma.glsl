@@ -2,9 +2,14 @@
 
 -- Compute
 
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+const uint GroupSize = 8;
+const uint NumThreads = GroupSize * GroupSize;
+
+layout(local_size_x = GroupSize, local_size_y = GroupSize, local_size_z = 1) in;
 layout(r16f, binding=0) uniform readonly image2D uSource;
 layout(r16f, binding=1) uniform writeonly image2D uTarget;
+
+shared float LumSample[NumThreads];
 
 float Luminance(vec3 color)
 {
@@ -21,7 +26,29 @@ void main()
 	if (x >= s.x || y >= s.y)
 		return;
 
-    vec3 color = imageLoad(uSource, ivec2(x, y)).rgb;
-    float logLuminance = log(max(Luminance(color), 0.00001f));
-	imageStore(uTarget, ivec2(x, y), vec4(logLuminance));
+    uint si = gl_LocalInvocationIndex;
+
+    float lum = imageLoad(uSource, ivec2(x, y)).r;
+    LumSample[si] = lum;
+
+    // Ensure shared memory writes are visible to work group
+    memoryBarrierShared();
+
+    // Ensure all threads in work group   
+    // have executed statements above
+    barrier();
+
+    for (uint s = NumThreads / 2; s > 0; s >>= 1)
+    {
+        if (si < s)
+            LumSample[si] += LumSample[si + s];
+        memoryBarrierShared();
+        barrier();
+    }
+
+    if (si == 0)
+    {
+        float avgLuma = LumSample[0]/NumThreads;
+        imageStore(uTarget, ivec2(gl_WorkGroupID.xy), vec4(avgLuma));
+    }
 }
