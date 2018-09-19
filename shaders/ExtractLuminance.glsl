@@ -2,7 +2,10 @@
 
 -- Compute
 
-layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+const uint GroupSize = 16;
+const uint NumThreads = GroupSize * GroupSize;
+
+layout(local_size_x = GroupSize, local_size_y = GroupSize, local_size_z = 1) in;
 layout(rgba16f, binding=0) uniform readonly image2D uTexSource;
 layout(rgba16f, binding=1) uniform writeonly image2D uTexTarget;
 

@@ -2,7 +2,7 @@
 
 -- Compute
 
-const uint GroupSize = 8;
+const uint GroupSize = 16;
 const uint NumThreads = GroupSize * GroupSize;
 
 layout(local_size_x = GroupSize, local_size_y = GroupSize, local_size_z = 1) in;
@@ -22,11 +22,14 @@ void main()
 	uint y = gl_GlobalInvocationID.y;
 	ivec2 s = imageSize(uSource);
 
-	// check out of bounds
-	if (x >= s.x || y >= s.y)
-		return;
-
     uint si = gl_LocalInvocationIndex;
+
+	// check out of bounds
+	if (x >= s.x || y >= s.y) 
+    {
+        LumSample[si] = 0.0;
+        return;
+    }
 
     float lum = imageLoad(uSource, ivec2(x, y)).r;
     LumSample[si] = lum;
@@ -38,6 +41,7 @@ void main()
     // have executed statements above
     barrier();
 
+#if 0
     for (uint s = NumThreads / 2; s > 0; s >>= 1)
     {
         if (si < s)
@@ -46,9 +50,14 @@ void main()
         barrier();
     }
 
+#endif
     if (si == 0)
     {
-        float avgLuma = LumSample[0]/NumThreads;
+        float total = 0.0;
+        for (uint s = 0; s < NumThreads; s++)
+            total += LumSample[s];
+
+        float avgLuma = total/NumThreads;
         imageStore(uTarget, ivec2(gl_WorkGroupID.xy), vec4(avgLuma));
     }
 }

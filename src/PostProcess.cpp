@@ -18,7 +18,9 @@ namespace postprocess
     void processBloom(const GraphicsTexturePtr& source, GraphicsTexturePtr target) noexcept;
     void updateExposure(std::vector<GraphicsTexturePtr>& textures) noexcept;
 
+    int m_ExposureMode;
     float m_Exposure;
+    float m_KeyValue;
     uint32_t m_FrameWidth, m_FrameHeight;
     GraphicsDeviceWeakPtr m_Device;
     ShaderPtr m_ExtractLuminance;
@@ -168,6 +170,7 @@ void postprocess::render(const GraphicsTexturePtr& source) noexcept
 
     glDisable(GL_DEPTH_TEST);
     m_BlitColor->bind();
+    m_BlitColor->setUniform("uExposureMode", m_ExposureMode);
     m_BlitColor->setUniform("uExposure", m_Exposure);
     m_BlitColor->bindTexture("uTexSource", source, 0);
     m_BlitColor->bindTexture("uTexBloom", m_BloomTexture, 1);
@@ -179,6 +182,9 @@ void postprocess::render(const GraphicsTexturePtr& source) noexcept
 void postprocess::update(float exposure) noexcept
 {
     m_Exposure = exposure;
+    m_ExposureMode = 3;
+    // 0.1150f, 0.0000f, 0.5000f, 0.0100f
+    m_KeyValue = 0.1150f;
 }
 
 void postprocess::framesizeChange(int32_t width, int32_t height) noexcept

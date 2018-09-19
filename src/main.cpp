@@ -184,8 +184,8 @@ void ArHosekSky::updateHUD() noexcept
     bUpdated |= ImGui::Checkbox("Enable Sun", &m_Settings.bEnableSun);
     bUpdated |= ImGui::SliderFloat("Sun Angle", &m_Settings.angle, 0.f, 120.f);
     bUpdated |= ImGui::SliderFloat("Sun Size", &m_Settings.sunSize, 0.01f, 120.f);
-    bUpdated |= ImGui::SliderFloat("Turbidity", &m_Settings.turbidity, 1.f, 100.f);
-    bUpdated |= ImGui::SliderFloat("Exposure", &m_Settings.exposure, -8.f, 8.f);
+    bUpdated |= ImGui::SliderFloat("Turbidity", &m_Settings.turbidity, 1.f, 10.f);
+    bUpdated |= ImGui::SliderFloat("Exposure", &m_Settings.exposure, -20.f, -12.f);
     ImGui::ColorWheel("Ground albedo", glm::value_ptr<float>(m_Settings.groundAlbedo), 12.f);
     ImGui::Text("CPU %s: %10.5f ms\n", "main", s_CpuTick);
     ImGui::Text("GPU %s: %10.5f ms\n", "main", s_GpuTick);
@@ -324,7 +324,7 @@ glm::vec3 ArHosekSky::SunLuminance(bool& cached)
     glm::vec3 sunDirection = glm::vec3(0.0f, glm::cos(angle), -glm::sin(angle));
     sunDirection.y = glm::clamp(sunDirection.y, 0.f, 1.f);
     sunDirection = glm::normalize(sunDirection);
-    const float turbidity = glm::clamp(m_Settings.turbidity, 1.0f, 32.0f);
+    const float turbidity = glm::clamp(m_Settings.turbidity, 1.0f, 10.0f);
     const float intensityScale = 1.f;
     const glm::vec3 tintColor = glm::vec3(1.f);
     const bool normalizeIntensity = false;

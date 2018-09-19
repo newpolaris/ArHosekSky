@@ -16,6 +16,7 @@ void main()
 
 -- Fragment
 
+uniform int uExposureMode;
 uniform float uExposure;
 uniform sampler2D uTexSource;
 uniform sampler2D uTexBloom;
@@ -26,6 +27,12 @@ in vec2 vTexcoords;
 
 // OUT
 out vec3 fragColor;
+
+uniform float uKeyValue = 0.0050;
+const int ExposureModes_ManualSimple = 0;
+const int ExposureModes_ManualSBS = 1;
+const int ExposureModes_ManualSOS = 2;
+const int ExposureModes_Automatic = 3;
 
 mat3 mat3_from_rows(vec3 c0, vec3 c1, vec3 c2)
 {
@@ -101,8 +108,17 @@ float log2Exposure(float avgLuminance)
 
     float exposure = 0.0f;
 
-    exposure = uExposure;
-    exposure -= log2(FP16Scale);
+    if (uExposureMode == ExposureModes_ManualSimple)
+    {
+        exposure = uExposure;
+        exposure -= log2(FP16Scale);
+    }
+    else if (uExposureMode == ExposureModes_Automatic)
+    {
+        avgLuminance = max(avgLuminance, 0.00001f);
+        float linearExposure = (uKeyValue / avgLuminance);
+        exposure = log2(max(linearExposure, 0.00001f));
+    }
 
     return exposure;
 }
